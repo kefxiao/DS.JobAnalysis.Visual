@@ -1,0 +1,333 @@
+---
+title: "Data Scientists Exploration"
+author: "Kefeng Xiao"
+date: "5/4/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+As more and more candidates entered the data job market and the required skills for data analysts/ scientists are constantly changing, it is insightful to explore : 
+
+0. exploration / distribution - academic background - Do phds get higher salaries? 
+- industry - Which industries like data scientists more? Are machine learning engineers are more wanted bylarger companies? 
+- age - What does data scientist age distribution look like?
+- tools - Which tools are being used the most? 
+
+1. Position - What is the salary distribution between different data job positions? 
+
+2. Industry - Which industries like data scientists more? 
+- Is the company bigger the higher the salary is? 
+
+3. Region- What is the distribution of data scientists across all regions? 
+What is the highest salary in different regions?  Do data scientists have higher salary compared to other similar positions? 
+
+
+## The Data 
+
+This data set includes full dimensional information about the role of 'Data Scientists' provided by users who filled out the information on www.glassdoor.com. It is made by Nikhil Bhathi scrapping the job postings related to the position of 'Data Scientist'.
+
+The data can be accessed for viewing and is available for download from the folling link: 
+https://www.kaggle.com/datasets/nikhilbhathi/data-scientist-salary-us-glassdoor 
+
+Content: There are 742 rows and 42 columns of data, the columns include Job title, Salary Estimate, Job Description, Rating, Company, Location, Company , Headquarters, Company Size, Company Founded Date, Type of Ownership, Industry, Sector, Revenue, Competitors and what tools thay are using, and - 1 means the data is not applicable. 
+
+## Data Cleaning 
+
+In order to obtain a clear visualization, values in variable "job_title_sim" are transformed to a more united form in the excel that similar items are renamed to the same. Additional changes include alphabetization and wording. Further cleaning is included in filtering dataset before plotting each plot.
+
+## Exploration and Overview
+
+```{r, include = FALSE}
+library(ggplot2)
+library(dplyr)
+
+file <- read.csv("data_cleaned_2021.csv") 
+
+hcols <- c(Black = "black", Brown = "brown4",
+           Red = "brown1", Blond = "lightgoldenrod1")
+```
+
+### Degree level
+
+```{r, include = FALSE}
+library(lattice)
+library(tidyr)
+
+mm <- file %>% filter(Degree != "na" & job_title_sim == "Data Scientist") %>% group_by(Degree) %>%
+    summarize(med_salary = median(Avg.Salary.K.),
+              avg_salary = mean(Avg.Salary.K.),
+              n = length(Avg.Salary.K.)) %>%
+    pivot_longer(2 : 3,
+                 names_to = "which",
+                 values_to = "Avg.Salary.K.")
+
+thm <- theme(plot.title = element_text(hjust = 0.5),
+          plot.margin = margin(t = 10, r = 10, b = 40, l = 10),
+          plot.tag.position = "bottom",
+          text=element_text(family="Times New Roman", face="bold", size=10))
+```
+
+It's well known that doctoral degrees are more welcomed by the industry in the data science field, however it's not able to be verified from this dataset because most respondents hold master degrees and there is no such variable called "More likely to hire a phd" filled out by the
+companies.
+
+However, the relationship between salary and degrees can be revealed. Figure 1 shows that top half of the phd data scientists have higher salary than top 25% of the data scientists. Figure 2 roughly shows the the a large proportion of the master data scientist's salary is around 120k, and a big part of phd data scientist's salary is around 150k. On average, employees having doctoral degrees would obtain higher salaries, which is the increase of about 12k.
+
+```{r, include = FALSE}
+library(patchwork)
+p1 <- file %>% filter(Degree != "na" & job_title_sim == "Data Scientist") %>% 
+  ggplot(aes(x = Degree, y = Avg.Salary.K.)) +
+  geom_boxplot() +  labs(y = "Average Salary",
+       title = "Salary Distribution By Degrees",
+         tag = "Figure 1: Salary Distribution By Degrees") + thm 
+
+p2 <- file %>% filter(Degree != "na" & job_title_sim == "Data Scientist") %>%  ggplot(aes(x = Degree, y =  Avg.Salary.K.)) +
+    geom_violin() +
+  geom_point(aes(color = which), data = mm) +  labs(y = "Average Salary",
+       title = "Salary Distribution By Degrees",
+         tag = "Figure 2: Salary Distribution By Degrees") + thm
+
+
+```
+
+```{r  fig.align = 'center', echo = FALSE}
+p1 + p2
+```  
+
+### Age Level 
+
+The data set is filtered through a reasonable range given that a lot of respondents filled out wrong. We can see most data scientists are young and they are mostly 25 +, which suggests the data science is a relatively new market. 
+
+```{r  fig.align = 'center', echo = FALSE}
+
+file %>% filter(Age < 50 & Age > 18 & job_title_sim == "Data Scientist") %>% ggplot() + 
+  geom_density(aes(x = Age)) + 
+  labs(y = "Density",
+       title = "Age Distribution",
+         tag = "Figure 3: Data Scientists Age Distribution") +
+  thm
+```
+
+### Tools Frequently Used 
+
+```{r  fig.align = 'center', echo = FALSE}
+tools <- file %>% filter(job_title_sim == "Data Scientist" ) %>% select(Python,spark,aws,excel,sql,sas,keras,pytorch,scikit,tensor,hadoop,tableau,bi,flink,mongo) %>%
+  apply(2,sum) %>% sort(decreasing = TRUE)
+top10_tools <- tools[1:10] %>% data.frame(tools= c("excel","sql","Python", "aws ", "spark", "tableau", "hadoop", "bi", "mongo", "sas")) 
+colnames(top10_tools) <- c("Freq","tools")
+
+```  
+
+SQL and Python are the mostly widely known tools used by data scientists. The development of new technologies can be fast, It is also shown more and more tools are required to master by data scientists. Aws, spark and tableau, BI, and hadoop are also widely used by data scientists. 
+
+```{r  fig.align = 'center', echo = FALSE}
+top10_tools %>% ggplot(aes(x = reorder(tools,-Freq) , y = Freq)) +
+    geom_col(fill = "deepskyblue3") +
+  labs(x = "Tools",
+      y = "Frequency",
+      title = "Frequent tools used ",
+      tag = "Figure4 :Frequent tools used by Data Scientists ") + 
+    thm
+```
+
+
+### Position level
+
+```{r, include = FALSE,out.width="50%"}
+library(ggridges)
+
+position <- file %>% filter(job_title_sim != "na" & job_title_sim != "Other Scientist" & 
+                  job_title_sim != "director" & job_title_sim != "data modeler")
+
+p5 <- file %>% filter(job_title_sim != "na" & job_title_sim != "director" & job_title_sim != "data modeler") %>% 
+  ggplot(aes(x = job_title_sim, y = Avg.Salary.K.)) +
+  geom_boxplot() +  labs(y = "Average Salary", x= "Job Position",
+       title = "Salary By Job Position",
+         tag = "Figure 5: Salary Distribution By Degrees") + thm 
+
+p6 <- ggplot(position) +
+    geom_density_ridges(
+        aes(x = Avg.Salary.K.,
+            y = job_title_sim,
+            fill = job_title_sim)) +
+    ylab(NULL) +  labs(y = "Job Position", x = "Average Salary",
+       title = "Salary By Job Position",
+         tag = "Figure 6: Salary By Job Position") + thm
+```
+
+Because more than half of the respondents are data scientists, this dataset is not balanced in terms of job position. The distribution of data scientists would be the most closest to the real situation. However, combined with the basic understanding of the market, the comparisons shown in this plot is consistent with the current market.
+
+Data analysts are shown to have the lowest salary among all the data related jobs, and MLE engineers appear to be the highest income group.Further comparison can be made on the following plot.  
+
+```{r  fig.align = 'center', echo = FALSE}
+p5 
+```  
+
+
+In further analysis on Figure 6, we can see all distributions are roughly normal distributions besides the MLE Engineer group. It might be due to the inadequate data. Among these distributions, Analytics manager and Data Analysts share the distribution under a similar range, and MLE engineers, Data Scientists, and Data Engineer share the distribution under a similar range. The only difference between these two group of similar distributions is the difference of mean and the proportion of high values. 
+
+```{r  fig.align = 'center', echo = FALSE}
+p6 
+```  
+
+### Industry Level 
+
+```{r, include = FALSE}
+library(tidyr)
+library(RColorBrewer)
+sec <- file %>% filter(Sector != -1 & job_title_sim != "na" & job_title_sim != "Other Scientist" & 
+                  job_title_sim != "director" & job_title_sim != "data modeler") %>% 
+  count(Sector,job_title_sim) %>% mutate(prop = n/sum(n))
+
+sec_wide <- pivot_wider(select(sec, -n),
+                          names_from = job_title_sim,
+                          values_from = prop)
+
+nm <- mutate(sec, job_title_sim = ordered(job_title_sim)) %>%
+    filter(job_title_sim <= "Data Scientist") %>%
+    group_by(Sector) %>%
+    summarize(prop = sum(prop)) %>%
+    arrange(desc(prop)) %>%
+    pull(Sector)
+gvcp <- mutate(sec, Name = factor(Sector, nm))
+
+pvcp <- ggplot(gvcp, aes(Sector, prop, fill = job_title_sim)) +
+    geom_col(position = "fill", width = 0.7) +
+    coord_flip() +
+    theme(legend.position = "top",
+          plot.margin = margin(r = 50),
+          legend.text = element_text(size = 10)) +
+    scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
+    guides(fill = guide_legend(title = NULL, nrow = 1, reverse = TRUE)) +
+    labs(x = "", y = "", title = "Data Job Distibutions in Industries", tag = "Figure 7: Data Job Distibutions in Industries ") + thm
+
+```
+
+The data collected is not balanced due to that the amount of different companies is not controllable, so the question "Which industries need more data scientists" can't be examined, but there are still some insights can be explored.
+
+We can see most companies do need data scientists, data engineers and data analysts, which suggests the importance of these three roles. It is also consistent with our assumption that the information technology, healthcare, business services and biotech industries are probably the industries most developed in utilizing data because they are the main industries having the combination of at least 4 data positions and the four roles are distributed not skewdly.
+
+```{r  fig.align = 'center', echo = FALSE}
+pvcp + scale_fill_brewer(palette = "PRGn")
+```
+
+### Relationship Between Company Size & (Revenue, Data Scientist Salary)
+
+```{r, include = FALSE}
+library(scales)
+size_rev <- file %>% filter(Revenue != "Unknown / Non-Applicable" & Size != 'Jan-50') %>% count(Size, Revenue)
+
+size_sal <- file %>% filter( Revenue != "Unknown / Non-Applicable" & Size != 'Jan-50' & Size != 'unknown') %>% 
+  group_by(Size,Revenue) %>% summarize(sal_mean = mean(Avg.Salary.K.))
+
+p8 <- ggplot(size_rev, aes(x = Size, y = Revenue)) + # x and y axes => Var1 and Var2
+  geom_tile(aes(fill = n)) + # background colours are mapped according to the value column
+  geom_text(aes(fill = n, label = n )) + # write the values
+  scale_fill_gradient2(low = muted("darkred"), 
+                       mid = "white", 
+                       high = muted("midnightblue"), 
+                       midpoint = 0) + # determine the colour
+  theme(panel.grid.major.x=element_blank(), #no gridlines
+        panel.grid.minor.x=element_blank(), 
+        panel.grid.major.y=element_blank(), 
+        panel.grid.minor.y=element_blank(),
+        panel.background=element_rect(fill="white"), # background=white
+        axis.text.x = element_text(angle=90, hjust = 1,vjust=1,size = 12,face = "bold"),
+        plot.title = element_text(size=10,face="bold"),
+        axis.text.y = element_text(size = 10,face = "bold")) + labs(y = "Company Revenue", x = "Company Size",
+       title = "Company Revenue VS Company Size",
+         tag = "Figure 8: Company Revenue VS Company Size") + thm
+
+p9 <- ggplot(size_sal, aes(x = Size, y = Revenue)) + # x and y axes => Var1 and Var2
+  geom_tile(aes(fill = sal_mean)) + # background colours are mapped according to the value column
+  geom_text(aes(fill = sal_mean, label = round(sal_mean,2))) + # write the values
+  scale_fill_gradient2(low = muted("darkred"), 
+                       mid = "white", 
+                       high = muted("red"), 
+                       midpoint = 0) + # determine the colour
+  theme(panel.grid.major.x=element_blank(), #no gridlines
+        panel.grid.minor.x=element_blank(), 
+        panel.grid.major.y=element_blank(), 
+        panel.grid.minor.y=element_blank(),
+        panel.background=element_rect(fill="white"), # background=white
+        axis.text.x = element_text(angle=90, hjust = 1,vjust=1,size = 12,face = "bold"),
+        plot.title = element_text(size=10,face="bold"),
+        axis.text.y = element_text(size = 10,face = "bold")) + labs(y = "DS Salary", x = "Company Size",
+       title = "DS Salary VS Company Size",
+         tag = "Figure 9: DS Salary VS Company Sizee") + thm
+
+```
+
+Giant companies are not always the top choice in pursuit of higher salaries. Although in general giant companies (with 10,000+ employees and revenues above $5 billion) tend to pay higher, financially-unpublic small-and-medium businesses would also offer competitive packages.
+
+In the heatmaps below, figure 8 shows the number of companies hiring data science professionals with their size and scale, 
+
+```{r  fig.align = 'center', echo = FALSE}
+p8 
+```  
+
+Figure 9 shows the average salaries they offer. Some buckets with extremely high salaries but low sample sizes are considered extreme values (e.g. only three companies are with 10,000+ employees and revenue $1–2 billion. That they offer $152K would be regarded as a rare case).
+
+```{r  fig.align = 'center', echo = FALSE}
+p9 
+```  
+
+### Data Scientists Salary By Region 
+
+```{r, include = FALSE}
+library(lattice)
+library(viridis)
+library(usmap)
+state_sal <- file %>% filter (job_title_sim == "Data Scientist") %>% 
+  group_by(Job.Location) %>% summarize(values = mean(Avg.Salary.K.), n = n()) %>% data.frame() 
+colnames(state_sal)[1] <- "state"
+
+state_sal_ana <- file %>% filter (job_title_sim == "Data Analyst") %>% 
+  group_by(Job.Location) %>% summarize(values = mean(Avg.Salary.K.), n = n()) %>% data.frame() 
+colnames(state_sal_ana)[1] <- "state"
+
+p10 <- plot_usmap(data = state_sal, values = "values", color = "red",labels = TRUE) + 
+  scale_fill_continuous(
+    low = "white", high = "red", name = "Data Scientist Average salary ", label = scales::comma
+  ) + theme(legend.position = "right") + labs(title = "DS Salary by States",
+         tag = "Figure 10: DS Salary by States") + thm
+
+p12 <- ggplot(state_sal, aes(y = reorder(state, n),
+                       x = n, size = values)) +
+    geom_point(aes(color = cut_number(values, 4))) +
+    labs(x = "Number of Data Scientists", y = NULL) +
+    scale_size_area("Salary(k)",
+                    max_size = 4) +
+    theme(legend.position = "top") +  scale_color_brewer(palette = 1) + labs(title = "DS Count/Avg Salary by States ",
+         tag = "Figure 11: DS Count/Avg Salary by States ") + thm
+
+```
+
+Not surprisingly, data scientists have the best treatment in terms of salary in California, which is around $110K+, it is surprissing that the gap between it and other states can be large to $50K a year. Given the news that more technology companies are moving to Texas, data science professionals in Texas appear not to receive a matching salary given the high demand there.
+
+```{r  fig.align = 'center', echo = FALSE}
+
+p10
+```  
+
+This plot shows detaild figures on DS salary.California, Illinois, New Jersey, Washinton, Utah, North Carolina and Missouri appeared to be the states giving best treaments to data scientists. It is consistent with our understanding, there are many technology companies in these states.
+
+```{r  fig.align = 'center', echo = FALSE}
+p12
+```  
+
+### Conclusion 
+
+Data science as rapid growing job position in the job market is being paid attention more and more.Given this dataset from Glassdoor, we are able to have a full dimensional understanding of the data science field. We are able to know in depth about the relationship between salary and other dimensions.  The only adequacy is the imbalance and the volume of the data. To have further improvement in the future, a more complete and accurate data can help us gain more valuable insights and better analysis.
+
+
+
+
+
+
+
+
